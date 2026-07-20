@@ -1,0 +1,10 @@
+# Core (no external deps required for local/demo mode)
+numpy>=1.26
+
+# Production extras — install to enable the real backends documented
+# in README.md / config.py. Not required to run demo.py or the tests.
+tensorflow>=2.16
+langchain>=0.2
+langchain-openai>=0.1
+sentence-transformers>=2.7
+neo4j>=5.20

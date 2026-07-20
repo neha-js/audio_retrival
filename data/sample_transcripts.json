@@ -1,0 +1,92 @@
+[
+  {
+    "id": "ep001_seg01",
+    "episode_id": "ep001",
+    "title": "Scaling Backend Systems",
+    "speaker": "Priya Nair",
+    "topic": "system-design",
+    "timestamp_sec": 45,
+    "text": "When you're scaling a backend system, the first bottleneck is almost always the database connection pool, not the application code itself."
+  },
+  {
+    "id": "ep001_seg02",
+    "episode_id": "ep001",
+    "title": "Scaling Backend Systems",
+    "speaker": "Priya Nair",
+    "topic": "system-design",
+    "timestamp_sec": 120,
+    "text": "We moved to a hybrid retrieval approach combining keyword search with dense vector embeddings to improve recall on rare technical terms."
+  },
+  {
+    "id": "ep002_seg01",
+    "episode_id": "ep002",
+    "title": "Intro to Retrieval-Augmented Generation",
+    "speaker": "David Kim",
+    "topic": "rag",
+    "timestamp_sec": 30,
+    "text": "Retrieval-Augmented Generation lets a language model ground its answers in real documents instead of relying purely on parametric memory."
+  },
+  {
+    "id": "ep002_seg02",
+    "episode_id": "ep002",
+    "title": "Intro to Retrieval-Augmented Generation",
+    "speaker": "David Kim",
+    "topic": "rag",
+    "timestamp_sec": 210,
+    "text": "A cross-encoder reranker looks at the query and each candidate passage together, which makes it far more accurate than embedding similarity alone, but also much slower."
+  },
+  {
+    "id": "ep003_seg01",
+    "episode_id": "ep003",
+    "title": "Query Understanding and Routing",
+    "speaker": "Priya Nair",
+    "topic": "nlp",
+    "timestamp_sec": 15,
+    "text": "Before you retrieve anything, you should classify what kind of question the user is actually asking, because a factual lookup and a summarization request need different pipelines."
+  },
+  {
+    "id": "ep003_seg02",
+    "episode_id": "ep003",
+    "title": "Query Understanding and Routing",
+    "speaker": "Priya Nair",
+    "topic": "nlp",
+    "timestamp_sec": 95,
+    "text": "An intent classifier sitting in front of your retriever can cut wasted retrieval calls dramatically, since not every query needs the heavy hybrid search path."
+  },
+  {
+    "id": "ep004_seg01",
+    "episode_id": "ep004",
+    "title": "Graph Databases for Metadata",
+    "speaker": "David Kim",
+    "topic": "graph-db",
+    "timestamp_sec": 60,
+    "text": "Neo4j is useful here because episodes, speakers, and topics naturally form a graph, so you can ask things like which speakers most often discuss retrieval."
+  },
+  {
+    "id": "ep004_seg02",
+    "episode_id": "ep004",
+    "title": "Graph Databases for Metadata",
+    "speaker": "David Kim",
+    "topic": "graph-db",
+    "timestamp_sec": 180,
+    "text": "Metadata-aware retrieval means filtering candidate transcript segments by speaker or topic before scoring, which shrinks the search space considerably."
+  },
+  {
+    "id": "ep005_seg01",
+    "episode_id": "ep005",
+    "title": "Reducing LLM Token Costs",
+    "speaker": "Priya Nair",
+    "topic": "optimization",
+    "timestamp_sec": 40,
+    "text": "The cheapest tokens are the ones you never send, so trimming and reranking retrieved passages before they hit the prompt saves real money at scale."
+  },
+  {
+    "id": "ep005_seg02",
+    "episode_id": "ep005",
+    "title": "Reducing LLM Token Costs",
+    "speaker": "David Kim",
+    "topic": "optimization",
+    "timestamp_sec": 150,
+    "text": "We cut our average prompt size by only passing the top reranked passages instead of every retrieved candidate, which reduced token consumption significantly."
+  }
+]
