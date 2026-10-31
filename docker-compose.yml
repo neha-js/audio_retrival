@@ -1,0 +1,31 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      # Default: use Ollama running on your own machine (Windows/Mac).
+      # To use the bundled container instead, see "Docker" in the README.
+      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+      LLM_MODEL: ${LLM_MODEL:-llama3.2}
+      WHISPER_MODEL: ${WHISPER_MODEL:-small}
+      APP_DATA_DIR: /data
+    volumes:
+      - app-data:/data                        # uploads + database
+      - model-cache:/root/.cache/huggingface  # Whisper model, downloaded once
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # makes the host address work on Linux too
+    restart: unless-stopped
+
+  ollama:                                     # optional: docker compose --profile ollama up
+    image: ollama/ollama
+    profiles: ["ollama"]
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+
+volumes:
+  app-data:
+  model-cache:
+  ollama-models:

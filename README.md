@@ -1,119 +1,162 @@
-# AI-Powered Audio Retrieval Backend
+# Earmark: Audio Retrieval App
 
-A modular Python backend for semantic search over audio transcripts, using
-Retrieval-Augmented Generation (RAG) with metadata-aware hybrid retrieval,
-cross-encoder reranking, and TensorFlow-based intent routing.
+Upload audio, and ask questions about it in plain English. Earmark transcribes the audio with Whisper, finds the most relevant passages with hybrid retrieval and reranking, has Llama write the answer, and shows you the exact moments it came from, ready to play.
 
-## Architecture
+<!-- Add a screenshot: save it as docs/screenshot.png, then uncomment the next line.
+![Earmark UI](docs/screenshot.png)
+-->
 
-```
-Query
-  │
-  ▼
-IntentClassifier ──────► routes query (factual / summarization / comparison / how-to)
-  │
-  ▼
-HybridRetriever (BM25 + dense embeddings, metadata-filtered via GraphStore)
-  │
-  ▼
-CrossEncoderReranker ───► rescopes shortlist down to top-k
-  │
-  ▼
-Prompt assembly ────────► sent to LLM (LangChain-style chain)
-```
+## Features
+
+- **Audio in, answers out.** Upload mp3, wav, m4a, flac or ogg. Whisper (faster-whisper) transcribes it in the background.
+- **Hybrid retrieval.** BM25 keyword search fused with dense embeddings, with metadata filtering by speaker or topic before scoring.
+- **Cross-encoder reranking.** The shortlist is rescored so only the best passages are sent to the LLM.
+- **Token accounting.** Each query reports tokens used against the naive "stuff everything into the prompt" baseline.
+- **Local Llama.** Answers are written by Llama through Ollama. If Ollama isn't running, you still get the retrieved passages.
+- **Cited moments.** Every source shows its speaker and timestamp, with a player that starts at that point.
+- **Web UI.** Animated black-and-mustard interface with a dark/light switch. No frontend build step.
+- **Persistent.** Uploads, transcripts and metadata are stored in SQLite and survive restarts.
+
+## How it works
 
 ```
-audio_rag_backend/
-├── config.py                          # central config, all swap points documented
-├── demo.py                            # runnable end-to-end demo
-├── data/sample_transcripts.json       # sample transcript + metadata corpus
+Audio file
+  │
+  ▼
+Whisper (faster-whisper) ──► ~30 second transcript chunks with timestamps
+  │
+  ▼
+SQLite  ◄── indexes are rebuilt from here after each upload
+  │
+Question
+  │
+  ▼
+IntentClassifier ──► labels the query (factual / summarization / comparison / how-to)
+  │
+  ▼
+HybridRetriever ──► BM25 + dense embeddings, metadata-filtered via GraphStore
+  │
+  ▼
+CrossEncoderReranker ──► shortlist narrowed to the top passages
+  │
+  ▼
+Prompt assembly ──► Llama (Ollama) ──► answer + cited moments
+```
+
+## Project structure
+
+```
+├── app/
+│   ├── main.py            # FastAPI routes
+│   ├── transcribe.py      # Whisper: audio -> timestamped chunks
+│   ├── service.py         # wraps RAGPipeline, rebuilds indexes after uploads
+│   ├── llm.py             # Llama generation through Ollama
+│   ├── store.py           # SQLite storage
+│   ├── settings.py        # env-var settings
+│   └── static/index.html  # the web UI
 ├── src/
-│   ├── ingestion/transcript_loader.py     # TranscriptSegment model + loader
-│   ├── retrieval/
-│   │   ├── bm25_retriever.py              # sparse/lexical retrieval (BM25, from scratch)
-│   │   ├── dense_retriever.py             # semantic retrieval over an EmbeddingProvider
-│   │   └── hybrid_retriever.py            # fuses BM25 + dense, metadata pre-filtering
-│   ├── reranking/cross_encoder_reranker.py# cross-encoder rescoring of the shortlist
-│   ├── classification/intent_classifier.py# query-routing classifier (TF or numpy backend)
-│   ├── graph/metadata_graph.py            # Neo4j-backed (or in-memory) metadata graph
-│   ├── pipeline/rag_pipeline.py           # orchestration (LangChain-style chain)
-│   └── utils/                             # tokenization, embedding abstractions
-└── tests/test_pipeline.py             # unit tests for every layer
+│   ├── ingestion/         # TranscriptSegment model + loader
+│   ├── retrieval/         # BM25, dense and hybrid retrievers
+│   ├── reranking/         # cross-encoder reranker
+│   ├── classification/    # query intent classifier
+│   ├── graph/             # metadata graph (in-memory or Neo4j)
+│   ├── pipeline/          # RAG orchestration
+│   └── utils/             # tokenization, embedding providers
+├── config.py              # retrieval pipeline configuration
+├── demo.py                # command-line demo on sample transcripts
+├── tests/                 # unit and API tests
+├── Dockerfile
+└── docker-compose.yml
 ```
 
-## Design principles
+## Quick start (Windows, macOS, Linux)
 
-- **OOP, interface-driven**: every swappable piece (`EmbeddingProvider`,
-  `GraphStore`, the reranker/classifier backends) is defined against an
-  abstract interface, so retrieval, reranking, and routing logic never
-  depend on a specific vendor or model.
-- **Metadata-aware retrieval**: queries that name a speaker or topic are
-  pre-filtered through the metadata graph *before* scoring, shrinking the
-  candidate pool instead of filtering after the fact.
-- **Token-conscious**: the pipeline reports token spend for a naive
-  "stuff everything retrieved into the prompt" baseline vs. the actual
-  reranked/trimmed prompt, so the token savings from reranking are
-  measurable, not just claimed.
-
-## Running it
-
-This environment has no external network access, so the demo runs with
-dependency-free fallbacks by default — no install step required:
+You need Python 3.10+ and [Ollama](https://ollama.com).
 
 ```bash
-python demo.py
-python -m unittest tests.test_pipeline -v
-```
-
-- **Dense retrieval** uses a from-scratch TF-IDF `EmbeddingProvider`
-  instead of a hosted embedding model.
-- **Reranking** uses a lexical overlap/proximity scorer instead of a
-  trained cross-encoder.
-- **Intent classification** uses a from-scratch numpy softmax classifier
-  instead of `tf.keras`.
-- **Metadata graph** uses an in-memory dict-backed store instead of a
-  live Neo4j instance.
-
-## Going to production
-
-Every fallback has a documented one-line swap to the real dependency:
-
-| Component | Local fallback | Production swap |
-|---|---|---|
-| Embeddings | `TfidfEmbeddingProvider` | `sentence-transformers` / OpenAI embeddings via `EmbeddingProvider` |
-| Reranker | lexical overlap scorer | `sentence_transformers.CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")` — set `use_real_cross_encoder=True` in `config.py` |
-| Intent classifier | numpy softmax net | `tf.keras.Sequential` — set `use_tensorflow=True` in `config.py` |
-| Metadata store | `InMemoryGraphStore` | `Neo4jGraphStore` — set `use_real_neo4j=True` and connection details in `config.py` |
-| Orchestration | plain Python chain in `rag_pipeline.py` | `langchain_core.runnables` / `LLMChain` (see docstring in `rag_pipeline.py`) |
-
-Install real dependencies with:
-
-```bash
-pip install tensorflow langchain langchain-openai sentence-transformers neo4j
-```
-
-Then flip the relevant flags in `config.py` — no other code changes required.
-
-## Tech stack
-
-Python, TensorFlow, LangChain, Neo4j, RAG, Hybrid Retrieval, Git
-
-## Running as an application
-
-```
 pip install -r requirements-app.txt
-ollama pull llama3.2 && ollama serve         # Llama, served locally
-uvicorn app.main:app --reload                # UI   -> http://localhost:8000
-                                             # API docs -> http://localhost:8000/docs
+ollama pull llama3.2
+uvicorn app.main:app --reload
 ```
+
+Open http://localhost:8000. The first upload is slow because Whisper downloads its model once.
+
+Ollama usually starts automatically after install. If `ollama serve` says the port is already in use, it's already running.
+
+## Docker
+
+```bash
+docker compose up --build
+```
+
+Open http://localhost:8000. The container talks to the Ollama you already run on your machine (`ollama pull llama3.2` first). Uploads and the database live in a Docker volume, and the Whisper model is cached in another, so neither is re-downloaded or lost between runs.
+
+To run Ollama in a container too:
+
+```bash
+docker compose --profile ollama up --build -d
+docker compose exec ollama ollama pull llama3.2
+```
+
+Set `OLLAMA_URL=http://ollama:11434` first (in a `.env` file next to `docker-compose.yml`, or in your shell) so the app uses it. Docker Desktop on Windows and macOS runs this on CPU, so the containerized Ollama will be slower than a native install.
+
+## API
+
+Interactive docs are at http://localhost:8000/docs.
 
 | Endpoint | Purpose |
 | --- | --- |
-| `POST /upload` | Upload audio; Whisper transcribes it in the background and it is indexed |
-| `POST /query` | Ask a question; returns the Llama answer plus sources with timestamps |
-| `GET /files`, `GET /files/{id}/audio`, `DELETE /files/{id}` | Manage the library |
+| `POST /upload` | Upload audio (optional `title`, `speaker`, `topic`). Transcribed and indexed in the background |
+| `POST /query` | `{"question": "..."}` returns the answer and sources with timestamps |
+| `GET /files` | List uploads and their status |
+| `GET /files/{id}/audio` | Stream the original audio |
+| `DELETE /files/{id}` | Remove an upload and its transcript |
+| `GET /health` | Health check |
 
-Settings (env vars): `WHISPER_MODEL`, `LLM_MODEL`, `OLLAMA_URL`, `CHUNK_SECONDS`, `MAX_UPLOAD_MB`, `APP_DATA_DIR`.
-If Ollama isn't running, `/query` still returns the retrieved passages.
+## Configuration
 
-The web UI lives in `app/static/index.html` and is served by the API itself (dark/light toggle, playable source moments). `ui.py` is an optional Streamlit alternative: `streamlit run ui.py`.
+Environment variables:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `LLM_MODEL` | `llama3.2` | Ollama model used for answers |
+| `OLLAMA_URL` | `http://localhost:11434` | Where Ollama is running |
+| `WHISPER_MODEL` | `small` | Whisper size: `tiny`, `base`, `small`, `medium`, `large-v3` |
+| `CHUNK_SECONDS` | `30` | Length of each transcript chunk |
+| `MAX_UPLOAD_MB` | `200` | Upload size limit |
+| `APP_DATA_DIR` | `storage` | Where audio and the database are kept |
+
+Retrieval settings (top-k, fusion weights, reranker and classifier backends) are in `config.py`.
+
+## Local fallbacks and production swaps
+
+To run anywhere without extra installs, several components use dependency-free fallbacks by default. Each has a documented swap to the real thing:
+
+| Component | Default | Production swap |
+| --- | --- | --- |
+| Embeddings | `TfidfEmbeddingProvider` | `sentence-transformers` or OpenAI embeddings through `EmbeddingProvider` |
+| Reranker | lexical overlap scorer | `CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")`: set `use_real_cross_encoder=True` in `config.py` |
+| Intent classifier | numpy softmax network | `tf.keras.Sequential`: set `use_tensorflow=True` in `config.py` |
+| Metadata store | in-memory graph | `Neo4jGraphStore`: set `use_real_neo4j=True` and connection details in `config.py` |
+
+Install the real dependencies with `pip install tensorflow langchain sentence-transformers neo4j` (or `pip install -r requirements.txt`).
+
+## Tests
+
+```bash
+python -m unittest tests.test_pipeline tests.test_api -v
+python demo.py     # command-line demo on sample transcripts
+```
+
+The API tests stub out Whisper and Ollama, so they run without any models installed.
+
+## Known limitations
+
+- Whisper doesn't identify speakers, so speaker defaults to "Unknown" unless you enter one at upload.
+- The search index is rebuilt in memory after every upload or delete. This is fine for hundreds of episodes; for much larger collections, move to a persistent vector store such as Chroma or Qdrant.
+- The intent classifier labels each query, but the label doesn't yet change how retrieval runs.
+- There is no login. Run it locally or behind your own authentication.
+
+## Tech stack
+
+Python, FastAPI, faster-whisper, Llama (Ollama), SQLite, BM25, dense retrieval, cross-encoder reranking, Docker. Optional: TensorFlow, LangChain, Neo4j, sentence-transformers.
