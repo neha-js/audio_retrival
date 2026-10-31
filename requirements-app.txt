@@ -1,0 +1,9 @@
+# API + UI (install on top of requirements.txt)
+fastapi>=0.110
+uvicorn[standard]>=0.29
+python-multipart>=0.0.9
+httpx>=0.27
+faster-whisper>=1.0
+# optional, only for the alternative ui.py:
+# streamlit>=1.35
+requests>=2.31

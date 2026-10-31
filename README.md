@@ -97,3 +97,23 @@ Then flip the relevant flags in `config.py` — no other code changes required.
 ## Tech stack
 
 Python, TensorFlow, LangChain, Neo4j, RAG, Hybrid Retrieval, Git
+
+## Running as an application
+
+```
+pip install -r requirements-app.txt
+ollama pull llama3.2 && ollama serve         # Llama, served locally
+uvicorn app.main:app --reload                # UI   -> http://localhost:8000
+                                             # API docs -> http://localhost:8000/docs
+```
+
+| Endpoint | Purpose |
+| --- | --- |
+| `POST /upload` | Upload audio; Whisper transcribes it in the background and it is indexed |
+| `POST /query` | Ask a question; returns the Llama answer plus sources with timestamps |
+| `GET /files`, `GET /files/{id}/audio`, `DELETE /files/{id}` | Manage the library |
+
+Settings (env vars): `WHISPER_MODEL`, `LLM_MODEL`, `OLLAMA_URL`, `CHUNK_SECONDS`, `MAX_UPLOAD_MB`, `APP_DATA_DIR`.
+If Ollama isn't running, `/query` still returns the retrieved passages.
+
+The web UI lives in `app/static/index.html` and is served by the API itself (dark/light toggle, playable source moments). `ui.py` is an optional Streamlit alternative: `streamlit run ui.py`.

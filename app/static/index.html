@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Earmark: search your audio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
+<script>try{var t=localStorage.getItem("theme");if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+<style>
+:root{--bg:#0A0A0A;--surface:#171717;--ink:#F4F0E4;--muted:#A8A294;--line:#2E2E2E;--accent:#E8B923;--on-accent:#0A0A0A;--mark:#F4F0E4;--ok:#6BCB8B;--bad:#FF7A6B;--focus:#E8B923;color-scheme:dark}
+:root[data-theme="light"]{--bg:#F5F2E8;--surface:#FFFFFF;--ink:#16140C;--muted:#6A6455;--line:#DAD4C2;--accent:#E0AB10;--on-accent:#16140C;--mark:#16140C;--ok:#1E8E5A;--bad:#C93A3A;--focus:#8A6A00;color-scheme:light}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 "Bricolage Grotesque",system-ui,sans-serif}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.app{display:grid;grid-template-columns:320px 1fr;min-height:100vh}
+aside{padding:28px 24px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:22px}
+.brand{font-weight:700;font-size:1.5rem;letter-spacing:-.02em;margin:0}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.theme{flex:none;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;display:grid;place-items:center}
+.theme svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.brand small{display:block;font-weight:500;font-size:.85rem;color:var(--muted);letter-spacing:0}
+.drop{display:block;border:2px dashed var(--line);border-radius:14px;padding:22px 16px;text-align:center;cursor:pointer;background:var(--surface)}
+.drop:hover,.drop.over{border-color:var(--accent)}
+.drop input{position:absolute;opacity:0;pointer-events:none}
+.drop b{display:block}.drop span{color:var(--muted);font-size:.85rem}
+details{font-size:.9rem}summary{cursor:pointer;color:var(--muted)}
+details label{display:block;margin-top:10px;color:var(--muted);font-size:.85rem}
+details input{width:100%;margin-top:3px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.btn{background:var(--accent);color:var(--on-accent);border:0;border-radius:10px;padding:10px 18px;font-weight:700;cursor:pointer}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.ghost{background:none;color:var(--muted);font-weight:500;padding:4px 8px;border:1px solid var(--line);font-size:.8rem}
+.lib h2,.sources h2{font-size:1rem;margin:0 0 10px}
+.lib ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.lib li{display:grid;grid-template-columns:18px 1fr auto;gap:10px;align-items:start;background:var(--surface);border-radius:10px;padding:10px 12px}
+.dot{width:10px;height:10px;border-radius:50%;margin-top:6px;background:var(--ok)}
+.dot.processing{background:none;border:2px solid var(--line);border-top-color:var(--accent);animation:spin 1s linear infinite}
+.dot.failed{background:var(--bad)}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.dot.processing{animation:none}}
+.lib .t{font-weight:500;word-break:break-word}.lib .m{font-size:.8rem;color:var(--muted)}
+.msg{font-size:.85rem;color:var(--muted);min-height:1.2em}.msg.err{color:var(--bad)}
+main{padding:56px 48px;max-width:860px}
+h1{font-size:clamp(1.9rem,4vw,2.9rem);line-height:1.05;letter-spacing:-.03em;margin:0 0 22px;max-width:15ch}
+.ask{display:flex;gap:10px;margin-bottom:34px}
+.ask input{flex:1;font-size:1.1rem;padding:14px 18px;border:2px solid var(--line);border-radius:14px;background:var(--surface)}
+.ask input:focus{border-color:var(--accent);outline:none}
+.answer{font:400 1.3rem/1.65 "Newsreader",Georgia,serif;max-width:62ch;white-space:pre-wrap;margin:0 0 6px}
+.note{font-size:.85rem;color:var(--muted);margin:0 0 34px}
+.empty{color:var(--muted);max-width:52ch}
+.moment{display:grid;grid-template-columns:44px 1fr;gap:16px;background:var(--surface);border-radius:16px;padding:18px;margin-bottom:12px}
+.play{width:44px;height:44px;border-radius:50%;border:0;background:var(--accent);color:var(--on-accent);cursor:pointer;display:grid;place-items:center}
+.play svg{width:18px;height:18px;fill:currentColor}
+.moment h3{margin:0;font-size:1rem}.moment .who{color:var(--muted);font-size:.85rem;margin-bottom:6px}
+.moment p{margin:0 0 12px;font:400 1.05rem/1.55 "Newsreader",Georgia,serif;max-width:62ch}
+.track{position:relative;height:10px;border-radius:5px;background:var(--line);cursor:pointer;margin-top:4px}
+.track .fill{position:absolute;inset:0 auto 0 0;width:0;border-radius:5px;background:var(--accent)}
+.track .cite{position:absolute;top:-5px;width:4px;height:20px;border-radius:2px;background:var(--mark);transform:translateX(-2px)}
+.times{display:flex;justify-content:space-between;font-size:.78rem;color:var(--muted);margin-top:8px;font-variant-numeric:tabular-nums}
+@media (max-width:820px){.app{grid-template-columns:1fr}aside{border-right:0;border-bottom:1px solid var(--line)}main{padding:32px 20px}}
+</style>
+</head>
+<body>
+<div class="app">
+<aside>
+  <div class="top"><h1 class="brand" style="max-width:none">Earmark<small>Find the exact moment in your audio</small></h1>
+  <button class="theme" id="theme" type="button" aria-label="Switch to light mode"></button></div>
+  <div>
+    <label class="drop" id="drop"><input type="file" id="file" accept=".mp3,.wav,.m4a,.flac,.ogg">
+      <b id="dropTitle">Drop an audio file here</b><span>or click to browse. mp3, wav, m4a, flac, ogg</span></label>
+    <details><summary>Add details (optional)</summary>
+      <label>Title<input id="title"></label>
+      <label>Speaker<input id="speaker" placeholder="Unknown"></label>
+      <label>Topic<input id="topic" placeholder="uncategorized"></label>
+    </details>
+    <p style="margin:12px 0 0"><button class="btn" id="upload" disabled>Upload and index</button></p>
+    <p class="msg" id="upMsg" role="status"></p>
+  </div>
+  <section class="lib"><h2>Your audio</h2><ul id="list"></ul><p class="msg" id="libMsg"></p></section>
+</aside>
+<main>
+  <h1>Ask anything your audio has said</h1>
+  <form class="ask" id="ask"><input id="q" placeholder="What did they say about reranking?" aria-label="Your question" autocomplete="off">
+    <button class="btn" id="go">Search</button></form>
+  <div id="result"><p class="empty">Upload an audio file on the left. Once it shows a green dot, ask a question and you'll get an answer plus the exact moments it came from, ready to play.</p></div>
+</main>
+</div>
+<script>
+const $=s=>document.querySelector(s);
+const fmt=s=>{s=Math.max(0,Math.floor(s||0));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
+const errText=e=>typeof e==='string'?e:'Please check your input and try again.';
+async function api(path,opts){
+  let r;try{r=await fetch(path,opts)}catch{throw new Error("Can't reach the server. Is uvicorn running?")}
+  if(!r.ok){let m=r.statusText;try{m=errText((await r.json()).detail)}catch{}throw new Error(m)}
+  return r.json();
+}
+let timer=null;
+async function loadFiles(){
+  try{
+    const files=await api('/files');const ul=$('#list');ul.replaceChildren();$('#libMsg').textContent='';
+    if(!files.length)$('#libMsg').textContent='Nothing here yet.';
+    files.forEach(f=>{
+      const li=document.createElement('li');
+      const dot=document.createElement('span');dot.className='dot '+f.status;dot.title=f.status;
+      const box=document.createElement('div');
+      const t=document.createElement('div');t.className='t';t.textContent=f.title;
+      const m=document.createElement('div');m.className='m';
+      m.textContent=f.status==='ready'?f.segment_count+' passages indexed':f.status==='failed'?(f.error||'Transcription failed'):'Transcribing. This can take a few minutes.';
+      box.append(t,m);
+      const del=document.createElement('button');del.className='btn ghost';del.textContent='Remove';
+      del.onclick=async()=>{if(confirm('Remove "'+f.title+'" and its transcript?')){await api('/files/'+f.id,{method:'DELETE'});loadFiles()}};
+      li.append(dot,box,del);ul.append(li);
+    });
+    clearTimeout(timer);
+    if(files.some(f=>f.status==='processing'))timer=setTimeout(loadFiles,3000);
+  }catch(e){$('#libMsg').textContent=e.message;$('#libMsg').className='msg err'}
+}
+const fileEl=$('#file'),drop=$('#drop');
+function picked(){const f=fileEl.files[0];$('#dropTitle').textContent=f?f.name:'Drop an audio file here';$('#upload').disabled=!f}
+fileEl.onchange=picked;
+['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over')}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over')}));
+drop.addEventListener('drop',e=>{if(e.dataTransfer.files.length){fileEl.files=e.dataTransfer.files;picked()}});
+$('#upload').onclick=async()=>{
+  const f=fileEl.files[0];if(!f)return;const fd=new FormData();
+  fd.append('file',f);fd.append('title',$('#title').value);fd.append('speaker',$('#speaker').value||'Unknown');fd.append('topic',$('#topic').value||'uncategorized');
+  const msg=$('#upMsg');msg.className='msg';msg.textContent='Uploading...';$('#upload').disabled=true;
+  try{await api('/upload',{method:'POST',body:fd});msg.textContent='Uploaded. Transcribing now.';fileEl.value='';picked();['title','speaker','topic'].forEach(i=>$('#'+i).value='');loadFiles()}
+  catch(e){msg.className='msg err';msg.textContent=e.message;$('#upload').disabled=false}
+};
+let playing=null;
+const PLAY='<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>',PAUSE='<svg viewBox="0 0 24 24"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>';
+function moment(s){
+  const el=document.createElement('article');el.className='moment';
+  const audio=new Audio();audio.preload='metadata';audio.src='/files/'+s.episode_id+'/audio';
+  const btn=document.createElement('button');btn.className='play';btn.innerHTML=PLAY;btn.setAttribute('aria-label','Play from '+fmt(s.timestamp_sec));
+  const body=document.createElement('div');
+  const h=document.createElement('h3');h.textContent=s.title;
+  const who=document.createElement('div');who.className='who';who.textContent=s.speaker+' at '+fmt(s.timestamp_sec);
+  const p=document.createElement('p');p.textContent=s.text;
+  const track=document.createElement('div');track.className='track';track.tabIndex=0;track.setAttribute('role','slider');track.setAttribute('aria-label','Seek');
+  const fill=document.createElement('div');fill.className='fill';const cite=document.createElement('div');cite.className='cite';cite.title='Cited moment';
+  track.append(fill,cite);
+  const times=document.createElement('div');times.className='times';const cur=document.createElement('span'),dur=document.createElement('span');times.append(cur,dur);cur.textContent=fmt(0);
+  body.append(h,who,p,track,times);el.append(btn,body);
+  let started=false;
+  const dura=()=>isFinite(audio.duration)&&audio.duration>0?audio.duration:0;
+  audio.onloadedmetadata=()=>{dur.textContent=fmt(dura());if(dura())cite.style.left=(s.timestamp_sec/dura()*100)+'%'};
+  audio.ontimeupdate=()=>{cur.textContent=fmt(audio.currentTime);if(dura())fill.style.width=(audio.currentTime/dura()*100)+'%'};
+  audio.onended=()=>{btn.innerHTML=PLAY};
+  btn.onclick=()=>{
+    if(!audio.paused){audio.pause();btn.innerHTML=PLAY;return}
+    if(playing&&playing!==audio)playing.pause();
+    if(!started){audio.currentTime=s.timestamp_sec;started=true}
+    audio.play();playing=audio;btn.innerHTML=PAUSE;
+  };
+  audio.onpause=()=>{btn.innerHTML=PLAY};
+  const seek=t=>{started=true;audio.currentTime=Math.min(Math.max(0,t),dura()||t)};
+  track.onclick=e=>{const r=track.getBoundingClientRect();if(dura())seek((e.clientX-r.left)/r.width*dura())};
+  track.onkeydown=e=>{if(e.key==='ArrowRight')seek(audio.currentTime+5);if(e.key==='ArrowLeft')seek(audio.currentTime-5)};
+  return el;
+}
+$('#ask').onsubmit=async e=>{
+  e.preventDefault();const q=$('#q').value.trim();if(q.length<3)return;
+  const out=$('#result'),go=$('#go');go.disabled=true;go.textContent='Searching...';
+  if(playing)playing.pause();
+  try{
+    const d=await api('/query',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q})});
+    out.replaceChildren();
+    const a=document.createElement('p');a.className='answer';a.textContent=d.answer;out.append(a);
+    const n=document.createElement('p');n.className='note';
+    n.textContent=d.llm_used?'Answer written by Llama from the passages below.':'Llama is not reachable, so these are the closest passages.';out.append(n);
+    if(d.sources.length){const sec=document.createElement('section');sec.className='sources';const h=document.createElement('h2');h.textContent='Where it came from';sec.append(h);d.sources.forEach(s=>sec.append(moment(s)));out.append(sec)}
+  }catch(err){out.replaceChildren();const p=document.createElement('p');p.className='msg err';p.textContent=err.message;out.append(p)}
+  go.disabled=false;go.textContent='Search';
+};
+const SUN='<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',MOON='<svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>';
+function paintTheme(){const light=document.documentElement.dataset.theme==='light';const b=$('#theme');b.innerHTML=light?MOON:SUN;b.setAttribute('aria-label',light?'Switch to dark mode':'Switch to light mode');b.title=b.getAttribute('aria-label')}
+$('#theme').onclick=()=>{const next=document.documentElement.dataset.theme==='light'?'dark':'light';document.documentElement.dataset.theme=next;try{localStorage.setItem('theme',next)}catch(e){}paintTheme()};
+paintTheme();
+loadFiles();
+</script>
+</body>
+</html>
